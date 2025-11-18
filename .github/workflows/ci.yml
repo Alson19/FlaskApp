@@ -30,6 +30,76 @@ jobs:
   build:
     name: Build Docker Image
     runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/flaskapp:latest .
+
+      - name: Push to Docker Hub
+        if: success()   # Only push if all previous steps succeeded
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/flaskapp:latest
+
+  email_notification:
+    name: Email if tests fail
+    needs: test
+    if: failure()   # Only runs if test job fails
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          to: your-email@example.com
+          subject: "CI Pipeline Failed"
+          body: "Tests failed in CI pipeline."
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest
+
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
     needs: test  # Only build if tests pass
 
     steps:
